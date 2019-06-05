@@ -10,6 +10,9 @@
 
 // amiga.gif ---------------------------------------------------------------
 
+#ifdef ESP32
+# define PROGMEM
+#endif
 const uint8_t PROGMEM palette00[][3] = {
   {  52,  52,  52 },
   { 191, 133, 133 },

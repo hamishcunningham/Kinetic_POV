@@ -27,14 +27,14 @@
   ------------------------------------------------------------------------*/
 
 #ifdef ESP32
-#include <pgmspace.h>
+# include <pgmspace.h>
 #endif
 #include <Arduino.h>
 #include <Adafruit_DotStar.h>
 #ifndef ESP32
-#include <avr/power.h>
-#include <avr/sleep.h>
-#include <SPI.h> // Enable this line on Pro Trinket
+# include <avr/power.h>
+# include <avr/sleep.h>
+# include <SPI.h> // Enable this line on Pro Trinket
 #endif
 
 #ifdef __AVR_ATtiny85__
@@ -61,8 +61,8 @@ typedef uint16_t line_t; // Bigger images OK on other boards
 // specific pins.  If you really need to bitbang DotStar data & clock on
 // different pins, optionally define those here:
 #ifdef ESP32
-#define LED_DATA_PIN  12
-#define LED_CLOCK_PIN 13
+# define LED_DATA_PIN  12
+# define LED_CLOCK_PIN 13
 #endif
 
 // Select from multiple images using tactile button (#1489) between pin and
@@ -182,20 +182,20 @@ uint8_t  debounce      = 0;  // Debounce counter for image select pin
 #endif
 
 void imageInit() { // Initialize global image state for current imageNumber
-  imageType    = pgm_read_byte(&images[imageNumber].type);
+  imageType    = images[imageNumber].type;
 #ifdef __AVR_ATtiny85__
-  imageLines   = pgm_read_byte(&images[imageNumber].lines);
+  imageLines   = images[imageNumber].lines;
 #else
-  imageLines   = pgm_read_word(&images[imageNumber].lines);
+  imageLines   = &images[imageNumber].lines;
 #endif
   imageLine    = 0;
-  imagePalette = (uint8_t *)pgm_read_word(&images[imageNumber].palette);
-  imagePixels  = (uint8_t *)pgm_read_word(&images[imageNumber].pixels);
+  imagePalette = images[imageNumber].palette;
+  imagePixels  = images[imageNumber].pixels;
   // 1- and 4-bit images have their color palette loaded into RAM both for
   // faster access and to allow dynamic color changing.  Not done w/8-bit
   // because that would require inordinate RAM (328P could handle it, but
   // I'd rather keep the RAM free for other features in the future).
-  /* breaks on ESP32...
+  /* TODO breaks on ESP32...
   if(imageType == PALETTE1)      memcpy_P(palette, imagePalette,  2 * 3);
   else if(imageType == PALETTE4) memcpy_P(palette, imagePalette, 16 * 3);
   */
@@ -255,7 +255,7 @@ void loop() {
       uint8_t  pixelNum = 0, byteNum, bitNum, pixels, idx,
               *ptr = (uint8_t *)&imagePixels[imageLine * NUM_LEDS / 8];
       for(byteNum = NUM_LEDS/8; byteNum--; ) { // Always padded to next byte
-        pixels = pgm_read_byte(ptr++);  // 8 pixels of data (pixel 0 = LSB)
+        pixels = ptr++;  // 8 pixels of data (pixel 0 = LSB)
         for(bitNum = 8; bitNum--; pixels >>= 1) {
           idx = pixels & 1; // Color table index for pixel (0 or 1)
           strip.setPixelColor(pixelNum++,
@@ -265,13 +265,11 @@ void loop() {
       break;
     }
 
-// TODO breaks on ESP32
-#ifndef ESP32
     case PALETTE4: { // 4-bit (16 color) palette-based image
       uint8_t  pixelNum, p1, p2,
               *ptr = (uint8_t *)&imagePixels[imageLine * NUM_LEDS / 2];
       for(pixelNum = 0; pixelNum < NUM_LEDS; ) {
-        p2  = pgm_read_byte(ptr++); // Data for two pixels...
+        p2  = ptr++; // Data for two pixels...
         p1  = p2 >> 4;              // Shift down 4 bits for first pixel
         p2 &= 0x0F;                 // Mask out low 4 bits for second pixel
         strip.setPixelColor(pixelNum++,
@@ -287,11 +285,11 @@ void loop() {
       uint8_t   pixelNum,
                *ptr = (uint8_t *)&imagePixels[imageLine * NUM_LEDS];
       for(pixelNum = 0; pixelNum < NUM_LEDS; pixelNum++) {
-        o = pgm_read_byte(ptr++) * 3; // Offset into imagePalette
+        o = ptr++ * 3; // Offset into imagePalette
         strip.setPixelColor(pixelNum,
-          pgm_read_byte(&imagePalette[o]),
-          pgm_read_byte(&imagePalette[o + 1]),
-          pgm_read_byte(&imagePalette[o + 2]));
+          imagePalette[o],
+          imagePalette[o + 1],
+          imagePalette[o + 2]);
       }
       break;
     }
@@ -301,9 +299,9 @@ void loop() {
       uint8_t  pixelNum, r, g, b,
               *ptr = (uint8_t *)&imagePixels[imageLine * NUM_LEDS * 3];
       for(pixelNum = 0; pixelNum < NUM_LEDS; pixelNum++) {
-        r = pgm_read_byte(ptr++);
-        g = pgm_read_byte(ptr++);
-        b = pgm_read_byte(ptr++);
+        r = ptr++;
+        g = ptr++;
+        b = ptr++;
         strip.setPixelColor(pixelNum, r, g, b);
       }
       break;
