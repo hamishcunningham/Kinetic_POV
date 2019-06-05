@@ -26,11 +26,16 @@
   See 'COPYING' file for additional notes.
   ------------------------------------------------------------------------*/
 
+#ifdef ESP32
+#include <pgmspace.h>
+#endif
 #include <Arduino.h>
 #include <Adafruit_DotStar.h>
+#ifndef ESP32
 #include <avr/power.h>
 #include <avr/sleep.h>
 #include <SPI.h> // Enable this line on Pro Trinket
+#endif
 
 #ifdef __AVR_ATtiny85__
 typedef uint8_t  line_t; // Max 255 lines/image on Trinket
@@ -55,8 +60,10 @@ typedef uint16_t line_t; // Bigger images OK on other boards
 // Ideally you use hardware SPI as it's much faster, though limited to
 // specific pins.  If you really need to bitbang DotStar data & clock on
 // different pins, optionally define those here:
-//#define LED_DATA_PIN  0
-//#define LED_CLOCK_PIN 1
+#ifdef ESP32
+#define LED_DATA_PIN  12
+#define LED_CLOCK_PIN 13
+#endif
 
 // Select from multiple images using tactile button (#1489) between pin and
 // ground.  Requires suitably-built graphics.h file w/more than one image.
@@ -100,7 +107,9 @@ Adafruit_DotStar strip = Adafruit_DotStar(NUM_LEDS, DOTSTAR_BGR);
 #endif
 
 void     imageInit(void);
+#ifndef ESP32
 uint16_t readVoltage(void);
+#endif
 #ifdef MOTION_PIN
 void     sleep(void);
 #endif
@@ -118,8 +127,16 @@ void setup() {
   strip.clear();                // Make sure strip is clear
   strip.show();                 // before measuring battery
 
+#if defined(ESP32)
+  Serial.begin(115200);
+  Serial.printf(
+    "clock pin is %d and data pin is %d\n", LED_CLOCK_PIN, LED_DATA_PIN
+  );
+#endif
+
   // Display battery level bargraph on startup.  It's just a vague estimate
   // based on cell voltage (drops with discharge) but doesn't handle curve.
+#ifndef ESP32
   uint16_t mV  = readVoltage();
   uint8_t  lvl = (mV >= BATT_MAX_MV) ? NUM_LEDS : // Full (or nearly)
                  (mV <= BATT_MIN_MV) ?        1 : // Drained
@@ -132,6 +149,7 @@ void setup() {
     delay(250 / NUM_LEDS);
   }
   delay(1500);                                    // Hold last state a moment
+#endif
   strip.clear();                                  // Then clear strip
   strip.show();
 
@@ -177,8 +195,10 @@ void imageInit() { // Initialize global image state for current imageNumber
   // faster access and to allow dynamic color changing.  Not done w/8-bit
   // because that would require inordinate RAM (328P could handle it, but
   // I'd rather keep the RAM free for other features in the future).
+  /* breaks on ESP32...
   if(imageType == PALETTE1)      memcpy_P(palette, imagePalette,  2 * 3);
   else if(imageType == PALETTE4) memcpy_P(palette, imagePalette, 16 * 3);
+  */
   lastImageTime = millis(); // Save time of image init for next auto-cycle
 }
 
@@ -245,6 +265,8 @@ void loop() {
       break;
     }
 
+// TODO breaks on ESP32
+#ifndef ESP32
     case PALETTE4: { // 4-bit (16 color) palette-based image
       uint8_t  pixelNum, p1, p2,
               *ptr = (uint8_t *)&imagePixels[imageLine * NUM_LEDS / 2];
@@ -273,6 +295,7 @@ void loop() {
       }
       break;
     }
+#endif
 
     case TRUECOLOR: { // 24-bit ('truecolor') image (no palette)
       uint8_t  pixelNum, r, g, b,
@@ -287,6 +310,9 @@ void loop() {
     }
   }
 
+#ifdef ESP32
+//Serial.println("doing strip.show()...");
+#endif
   strip.show(); // Refresh LEDs
 #if !defined(LED_DATA_PIN) && !defined(LED_CLOCK_PIN)
   delayMicroseconds(900);  // Because hardware SPI is ludicrously fast
@@ -400,6 +426,7 @@ ISR(PCINT2_vect, ISR_ALIASOF(PCINT0_vect));
 // In a pinch, the poi code can work on a 3V Trinket, but the battery
 // monitor will not work correctly (due to the 3.3V regulator), so
 // maybe just comment out any reference to this code in that case.
+#ifndef ESP32
 uint16_t readVoltage() {
   int      i, prev;
   uint8_t  count;
@@ -430,3 +457,4 @@ uint16_t readVoltage() {
   ADCSRA = 0; // ADC off
   return mV;
 }
+#endif
