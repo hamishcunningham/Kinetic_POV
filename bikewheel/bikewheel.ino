@@ -186,11 +186,11 @@ void imageInit() { // Initialize global image state for current imageNumber
 #ifdef __AVR_ATtiny85__
   imageLines   = images[imageNumber].lines;
 #else
-  imageLines   = &images[imageNumber].lines;
+  imageLines   = images[imageNumber].lines;
 #endif
   imageLine    = 0;
-  imagePalette = images[imageNumber].palette;
-  imagePixels  = images[imageNumber].pixels;
+  imagePalette = (uint8_t *) &images[imageNumber].palette;
+  imagePixels  = (uint8_t *) &images[imageNumber].pixels;
   // 1- and 4-bit images have their color palette loaded into RAM both for
   // faster access and to allow dynamic color changing.  Not done w/8-bit
   // because that would require inordinate RAM (328P could handle it, but
@@ -255,7 +255,7 @@ void loop() {
       uint8_t  pixelNum = 0, byteNum, bitNum, pixels, idx,
               *ptr = (uint8_t *)&imagePixels[imageLine * NUM_LEDS / 8];
       for(byteNum = NUM_LEDS/8; byteNum--; ) { // Always padded to next byte
-        pixels = ptr++;  // 8 pixels of data (pixel 0 = LSB)
+        pixels = *ptr++;  // 8 pixels of data (pixel 0 = LSB)
         for(bitNum = 8; bitNum--; pixels >>= 1) {
           idx = pixels & 1; // Color table index for pixel (0 or 1)
           strip.setPixelColor(pixelNum++,
@@ -269,7 +269,7 @@ void loop() {
       uint8_t  pixelNum, p1, p2,
               *ptr = (uint8_t *)&imagePixels[imageLine * NUM_LEDS / 2];
       for(pixelNum = 0; pixelNum < NUM_LEDS; ) {
-        p2  = ptr++; // Data for two pixels...
+        p2  = *ptr++; // Data for two pixels...
         p1  = p2 >> 4;              // Shift down 4 bits for first pixel
         p2 &= 0x0F;                 // Mask out low 4 bits for second pixel
         strip.setPixelColor(pixelNum++,
@@ -285,7 +285,7 @@ void loop() {
       uint8_t   pixelNum,
                *ptr = (uint8_t *)&imagePixels[imageLine * NUM_LEDS];
       for(pixelNum = 0; pixelNum < NUM_LEDS; pixelNum++) {
-        o = ptr++ * 3; // Offset into imagePalette
+        o = (*ptr++) * 3; // Offset into imagePalette
         strip.setPixelColor(pixelNum,
           imagePalette[o],
           imagePalette[o + 1],
@@ -293,15 +293,14 @@ void loop() {
       }
       break;
     }
-#endif
 
     case TRUECOLOR: { // 24-bit ('truecolor') image (no palette)
       uint8_t  pixelNum, r, g, b,
               *ptr = (uint8_t *)&imagePixels[imageLine * NUM_LEDS * 3];
       for(pixelNum = 0; pixelNum < NUM_LEDS; pixelNum++) {
-        r = ptr++;
-        g = ptr++;
-        b = ptr++;
+        r = *ptr++;
+        g = *ptr++;
+        b = *ptr++;
         strip.setPixelColor(pixelNum, r, g, b);
       }
       break;
